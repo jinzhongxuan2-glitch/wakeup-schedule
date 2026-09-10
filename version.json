@@ -1,0 +1,7 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
+  "notes": "1.0.0 首个版本：周视图课表、多课表、外观自定义、桌面小部件、CSV 导入。",
+  "force": false
+}

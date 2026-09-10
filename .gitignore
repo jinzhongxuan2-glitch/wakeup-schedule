@@ -1,0 +1,19 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+app/build/
+
+# 签名凭据不入库
+*.keystore
+keystore.properties
+
+# 构建产物
+*.apk
+.workbuddy/

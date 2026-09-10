@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="uhWAr1vX7hEYB6FAR1uyyE">
+<head data-page-node-id="HZgmmcACWSIvJN2arVbWDn">
+<meta charset="UTF-8" data-page-node-id="B6NpQ6eKBLUhdMMNcl1FfW">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="fM86X5GKebfpcp2fv1B3no">
+<title>WakeUp课表 · 还原版设计预览</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body { background: #2b2f36; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px 16px; color: #eee; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #9aa0a8; margin-bottom: 28px; }
+  .row { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
+  .label { text-align: center; font-size: 13px; color: #9aa0a8; margin-top: 14px; }
+
+  .phone {
+    width: 375px; height: 740px; background: #FAFAFA; color: #212121;
+    border-radius: 36px; overflow: hidden; position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    display: flex; flex-direction: column;
+  }
+  .statusbar { height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 11px; color: #555; flex: none; }
+
+  .topbar { display: flex; align-items: center; padding: 6px 14px 8px; flex: none; }
+  .date { font-size: 11px; color: #9E9E9E; }
+  .weekrow { display: flex; align-items: center; gap: 8px; }
+  .week { font-size: 24px; font-weight: 700; }
+  .today-chip { font-size: 11px; color: #004D40; background: #B2DFDB; border-radius: 8px; padding: 2px 8px; }
+  .notweek-chip { font-size: 11px; color: #fff; background: #26A69A; border-radius: 8px; padding: 2px 8px; }
+  .icons { margin-left: auto; display: flex; gap: 14px; color: #424242; font-size: 18px; }
+
+  .datebar { display: flex; align-items: center; padding: 0 8px 6px; flex: none; }
+  .month { width: 30px; text-align: center; font-size: 11px; color: #9E9E9E; flex: none; }
+  .dcell { flex: 1; text-align: center; }
+  .dcell .w { font-size: 11px; color: #9E9E9E; }
+  .dcell .d { font-size: 13px; width: 24px; height: 24px; line-height: 24px; margin: 1px auto 0; border-radius: 50%; }
+  .dcell.today .w { color: #26A69A; }
+  .dcell.today .d { background: #26A69A; color: #fff; font-weight: 700; }
+
+  .grid { flex: 1; position: relative; margin: 0 8px 10px; display: flex; }
+  .axis { width: 30px; flex: none; display: flex; flex-direction: column; }
+  .axis .sec { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .axis .n { font-size: 12px; font-weight: 500; color: #757575; }
+  .axis .t { font-size: 7px; color: #BDBDBD; line-height: 1.2; }
+  .days { flex: 1; position: relative; display: flex; }
+  .daycol { flex: 1; position: relative; border-right: 1px solid #F5F5F5; }
+  .daycol:last-child { border-right: none; }
+  .lines { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
+  .lines .l { flex: 1; border-bottom: 1px solid #F0F0F0; }
+
+  .block {
+    position: absolute; left: 2px; right: 2px; border-radius: 6px; padding: 4px;
+    color: #fff; overflow: hidden; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,.12);
+  }
+  .block .cn { font-size: 11px; font-weight: 700; line-height: 1.25; }
+  .block .loc { font-size: 9px; opacity: .92; line-height: 1.2; margin-top: 2px; }
+
+  /* 功能面板 */
+  .sheet-mask { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; background: #fff;
+    border-radius: 24px 24px 0 0; padding: 18px 20px 26px; box-shadow: 0 -8px 30px rgba(0,0,0,.2);
+  }
+  .grabber { width: 36px; height: 4px; background: #E0E0E0; border-radius: 2px; margin: 0 auto 14px; }
+  .sheet .wtitle { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .slider { height: 6px; border-radius: 3px; background: linear-gradient(to right, #26A69A 0 10%, #E0E0E0 10% 100%); position: relative; margin: 14px 0 20px; }
+  .slider .thumb { position: absolute; left: 10%; top: 50%; transform: translate(-50%,-50%); width: 20px; height: 20px; background: #fff; border: 3px solid #26A69A; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .tabs { display: flex; gap: 10px; margin: 10px 0 4px; }
+  .tchip { width: 52px; text-align: center; }
+  .tchip .sq { width: 52px; height: 52px; border-radius: 12px; color: #fff; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+  .tchip.sel .sq { outline: 2.5px solid #26A69A; }
+  .tchip .nm { font-size: 10px; color: #757575; margin-top: 4px; white-space: nowrap; overflow: hidden; }
+  .tabbtns { text-align: right; font-size: 13px; color: #26A69A; margin-bottom: 2px; }
+  .tabbtns span { margin-left: 14px; }
+  .fnrow { display: flex; border-top: 1px solid #F0F0F0; margin-top: 12px; padding-top: 14px; }
+  .fn { flex: 1; text-align: center; font-size: 11px; color: #424242; }
+  .fn .ic { font-size: 20px; color: #26A69A; margin-bottom: 5px; }
+</style>
+</head>
+<body data-page-node-id="btUCLEgqbwRvbc9iZyaqLM">
+  <h1 data-page-node-id="oRl6izp7ByDBb82IPThegs">WakeUp课表 · 逆向还原版</h1>
+  <div class="sub" data-page-node-id="nGcyEnj3W1mLHPPpPD8Qy7">Android 原生实现 · Kotlin + Jetpack Compose · 左：主界面（第2周）　右：更多功能面板</div>
+  <div class="row" data-page-node-id="DnTZAtJlvSuvjiKY72AtJc">
+
+    <!-- 主界面 -->
+    <div data-page-node-id="a7zJtTyNVOUhY1cBwPkRGa">
+      <div class="phone" data-page-node-id="9GZhaHtIMAH2579KNIqopX">
+        <div class="statusbar" data-page-node-id="EaTDD0pPfxz3IFnKlZmtv9"><span data-page-node-id="mtrfCbINKXCg4wVkXd6R1H">9:41</span><span data-page-node-id="IMzoncUbqDGrdjz79Av7lU">📶 🔋</span></div>
+        <div class="topbar" data-page-node-id="dhcKJbNM4mKFH6hjgIybOe">
+          <div data-page-node-id="EUGPDxUzETe1envXkNxIeI">
+            <div class="date" data-page-node-id="XQhQpT30FeH0JkMUsjFJyn">9月9日</div>
+            <div class="weekrow" data-page-node-id="78OLb8lUiuJGn6HUkgk55E">
+              <span class="week" data-page-node-id="9Y6R3yFWGlEoy3ME1AneIP">第2周</span>
+              <span class="today-chip" data-page-node-id="KCr2hug8m7A33soDayZqyy">周三</span>
+            </div>
+          </div>
+          <div class="icons" data-page-node-id="yYgHNFhJim2wh9Vr9beqLK"><span data-page-node-id="GhqUYslgAE58AjyZdPFXjo">＋</span><span data-page-node-id="JTbjt3NqBMksJFGktyDxXl">⬇</span><span data-page-node-id="MFXSDvQhrWvfzWCb25y2wr">⬆</span><span data-page-node-id="dBb2ksprsMpzkqcg5AACe1">⋮</span></div>
+        </div>
+        <div class="datebar" data-page-node-id="dfhRgADMmEQeoP7BuWnGJs">
+          <div class="month" data-page-node-id="sF27fe8HifuoeNADVMt19t">9月</div>
+          <div class="dcell" data-page-node-id="9IavkO6Ziv7vhIiJhLOspX"><div class="w" data-page-node-id="geNSavflqgKL8cStDVAcEm">一</div><div class="d" data-page-node-id="I7BFczZXeUhsbl14j9Cq2W">7</div></div>
+          <div class="dcell" data-page-node-id="2AMnsvy4hbsAMIojVOaG0b"><div class="w" data-page-node-id="5za4Jn5uqRuNh7QHLyMeLe">二</div><div class="d" data-page-node-id="ecj5dderl5i8GMuqfxZZhc">8</div></div>
+          <div class="dcell today" data-page-node-id="fgpP46BEtHAMl5FsrJXIaP"><div class="w" data-page-node-id="Iz1xjPWD1F06tNGSpZB7UA">三</div><div class="d" data-page-node-id="CrR66cTxIUlio5wlQocqI6">9</div></div>
+          <div class="dcell" data-page-node-id="WS5dwS4I0mltMwJ47W2bcC"><div class="w" data-page-node-id="TjlJx2KYCZOjtKd0ca2bR9">四</div><div class="d" data-page-node-id="nLdkSywjA9aTeriqNGG7kL">10</div></div>
+          <div class="dcell" data-page-node-id="aHKBy9N9Z8ZEfU1HLdJVbH"><div class="w" data-page-node-id="dmyAWvLhA7XCVOvCPF93eb">五</div><div class="d" data-page-node-id="EjV3DWzonUDNww2cfPPuXo">11</div></div>
+          <div class="dcell" data-page-node-id="OIv0WJnIHFKCVyaeVcVQ2t"><div class="w" data-page-node-id="kGKMYmKcuIwQ0TwF9B3cEl">六</div><div class="d" data-page-node-id="kgkIuX3YJFigfg3NGN6EHe">12</div></div>
+          <div class="dcell" data-page-node-id="vmEkSej5Va0WRFeGiRRmnr"><div class="w" data-page-node-id="FUJkd5hw2b9wdPgQWSBvkq">日</div><div class="d" data-page-node-id="tcHnyEoSOj6vDBLTW7v0W5">13</div></div>
+        </div>
+        <div class="grid" data-page-node-id="OiLZ8ha4YhHCDk3OuJ6c7b">
+          <div class="axis" id="axis" data-page-node-id="GgrUeByKYwvYcP2dxNCHC7"></div>
+          <div class="days" id="days" data-page-node-id="Ez3QCEqV8DyTIKBBMfyG8C"></div>
+        </div>
+      </div>
+      <div class="label" data-page-node-id="lsYL5qfAgS3esTpf2tQ3KI">主界面：周视图网格 · 横向翻页切周 · 点击课程块看详情</div>
+    </div>
+
+    <!-- 功能面板 -->
+    <div data-page-node-id="VyjCB1HzVdisHYwAzLds33">
+      <div class="phone" data-page-node-id="znUZ2GFiEYDCIHAvGZBkci">
+        <div class="statusbar" data-page-node-id="F1c5ILzU2HrrtkqfK5FiwG"><span data-page-node-id="7JXNJiH7oIyTN9iPtPAO6d">9:41</span><span data-page-node-id="QSc4PYYn1inamjTJX3GP0p">📶 🔋</span></div>
+        <div class="topbar" data-page-node-id="5llZSkW3ZurTQvuzAP8nq9">
+          <div data-page-node-id="mZAGgb0qpeHHhgzwyA4yBS">
+            <div class="date" data-page-node-id="h7Pt6p5EX0UcTZRwJ7lJL7">9月9日</div>
+            <div class="weekrow" data-page-node-id="a8c3sy8Nd3QzCL6LSDQXHk">
+              <span class="week" data-page-node-id="grRkmjiZyUDWixxuSCO9N5">第2周</span>
+              <span class="today-chip" data-page-node-id="hUfrgcXztG25mxFnEJ0BXE">周三</span>
+            </div>
+          </div>
+          <div class="icons" data-page-node-id="AiY96FrGR81VTLDgUKD4Ea"><span data-page-node-id="oMtm9TOLaOPyUiYN2jFO3y">＋</span><span data-page-node-id="Pyx1IHMvLIU856TcVs8lUZ">⬇</span><span data-page-node-id="RkYiHDozz9yWV6fKT9yuQY">⬆</span><span data-page-node-id="cLpAAjFaU1dAeEPScw6ZBU">⋮</span></div>
+        </div>
+        <div class="sheet-mask" data-page-node-id="6zLIvkQeqS4GqyDDPBEBUk"></div>
+        <div class="sheet" data-page-node-id="B1Gc8BebCZhTjFjWE1wfld">
+          <div class="grabber" data-page-node-id="vy7hJ6WBrvT04bkKwt9kmB"></div>
+          <div class="wtitle" data-page-node-id="j36509Bk82Gm1YrFxFPcVp">第 2 周 / 共 20 周</div>
+          <div class="slider" data-page-node-id="Y6uHE18EeInvLWbAqOxsam"><div class="thumb" data-page-node-id="UamkfPDngR2Xh08HuhJ5YC"></div></div>
+          <div class="tabbtns" data-page-node-id="ZbqaAl5LYpeTepCCOBeppH"><span data-page-node-id="63Au2WdNi7BOJFVRN7uyIT">新建</span><span data-page-node-id="cnmMTSj24f9h6mjEVHC9K1">管理</span></div>
+          <div class="tabs" data-page-node-id="9bVwEROFDFexFE3ILdnBuK">
+            <div class="tchip sel" data-page-node-id="mnzF3SqT3cQd6x7Q3HQGld"><div class="sq" style="background:#BA68C8" data-page-node-id="ZfruQL1ucLXUam0RxbcTQ9">大三</div><div class="nm" data-page-node-id="Zkk2Q61y67QoJaBRKC8YI7">大三上·示例课表</div></div>
+            <div class="tchip" data-page-node-id="cUTTEkX6iRHOjtX07tTxwO"><div class="sq" style="background:#4DB6AC" data-page-node-id="WDEf4E3IwpEIoArMNJECAn">考研</div><div class="nm" data-page-node-id="nrMWDjdxqFFRXpI2eVHa8X">考研复习</div></div>
+            <div class="tchip" data-page-node-id="jELbAXJT7vEwMLw6gc5CYI"><div class="sq" style="background:#FFB74D" data-page-node-id="ZBPYGWdHI5KAJGiOHoqnyD">辅修</div><div class="nm" data-page-node-id="0y4JZsHyE0MTFiGQFEtgDP">辅修学位</div></div>
+          </div>
+          <div class="fnrow" data-page-node-id="uL8nUb519La6NaaGpp76sA">
+            <div class="fn" data-page-node-id="Bj4d3PSqzzHdnd2hFEvlaI"><div class="ic" data-page-node-id="nG4rwIDHEF7i1gcl65AD0O">🕐</div>上课时间</div>
+            <div class="fn" data-page-node-id="UTbxpoaOVHgXJhDHWaBfMN"><div class="ic" data-page-node-id="DP5KJ9RRUQaDOrabEtTZWF">🎛</div>课表设置</div>
+            <div class="fn" data-page-node-id="Gy9c2y192EOvTLcMdCatpy"><div class="ic" data-page-node-id="Wm3sSSTYJZJd6eXoEQfzFH">📋</div>已添课程</div>
+            <div class="fn" data-page-node-id="u6GZsTCEn7ULVGO9SW9Ui0"><div class="ic" data-page-node-id="x8mKnrajETwccoLiC801E1">⚙️</div>全局设置</div>
+          </div>
+        </div>
+      </div>
+      <div class="label" data-page-node-id="VQibDeoToKePdwJpE6YS0l">更多功能面板：周数滑竿 · 课表切换器 · 快捷入口</div>
+    </div>
+
+  </div>
+
+<script>
+  // 左侧时间轴（12 节）
+  const times = [
+    ["08:00","08:45"],["08:55","09:40"],["10:05","10:50"],["11:00","11:45"],
+    ["14:00","14:45"],["14:55","15:40"],["16:05","16:50"],["17:00","17:45"],
+    ["19:00","19:45"],["19:55","20:40"],["20:50","21:35"],["21:45","22:30"]
+  ];
+  const axis = document.getElementById('axis');
+  times.forEach((t, i) => {
+    axis.insertAdjacentHTML('beforeend',
+      `<div class="sec"><div class="n">${i+1}</div><div class="t">${t[0]}</div><div class="t">${t[1]}</div></div>`);
+  });
+
+  // 课程数据（与 App 内置示例课表第 2 周一致）
+  // day: 0=周一 ... 6=周日; start: 起始节(1-based); len: 连上节数
+  const courses = [
+    { day:0, start:1, len:2, name:"高等数学A(下)", loc:"教一-201", c:"#64B5F6" },
+    { day:0, start:3, len:2, name:"数据结构与算法", loc:"计科楼-305", c:"#F06292" },
+    { day:0, start:5, len:2, name:"大学英语(四)", loc:"外语楼-412", c:"#FFB74D" },
+    { day:1, start:1, len:2, name:"操作系统原理", loc:"计科楼-302", c:"#9575CD" },
+    { day:1, start:5, len:2, name:"体育(羽毛球)", loc:"体育馆2F", c:"#81C784" },
+    { day:1, start:7, len:2, name:"马克思主义基本原理", loc:"教二-108", c:"#FF8A65" },
+    { day:2, start:3, len:2, name:"高等数学A(下)", loc:"教一-201", c:"#64B5F6" },
+    { day:2, start:7, len:2, name:"程序设计实践", loc:"实验楼-B204", c:"#4DD0E1" },
+    { day:2, start:9, len:2, name:"大学物理(下)", loc:"物理楼-101", c:"#7986CB" },
+    { day:3, start:1, len:2, name:"数据结构与算法", loc:"计科楼-305", c:"#F06292" },
+    { day:3, start:3, len:2, name:"线性代数", loc:"教一-305", c:"#4DB6AC" },
+    { day:4, start:1, len:2, name:"大学英语(四)", loc:"外语楼-412", c:"#FFB74D" },
+    { day:4, start:9, len:2, name:"通识选修·电影鉴赏", loc:"艺术楼-201", c:"#BA68C8" }
+  ];
+
+  const days = document.getElementById('days');
+  for (let d = 0; d < 7; d++) {
+    const col = document.createElement('div');
+    col.className = 'daycol';
+    const lines = document.createElement('div');
+    lines.className = 'lines';
+    for (let i = 0; i < 12; i++) lines.insertAdjacentHTML('beforeend', '<div class="l"></div>');
+    col.appendChild(lines);
+    days.appendChild(col);
+  }
+  courses.forEach(k => {
+    const col = days.children[k.day];
+    const top = ((k.start - 1) / 12 * 100).toFixed(3);
+    const h = (k.len / 12 * 100).toFixed(3);
+    col.insertAdjacentHTML('beforeend',
+      `<div class="block" style="top:calc(${top}% + 1px); height:calc(${h}% - 2px); background:${k.c}">
+        <div class="cn">${k.name}</div><div class="loc">@${k.loc}</div>
+      </div>`);
+  });
+</script>
+</body>
+</html>
