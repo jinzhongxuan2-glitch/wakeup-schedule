@@ -17,3 +17,4 @@ keystore.properties
 # 构建产物
 *.apk
 .workbuddy/
+.kotlin/

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -21,7 +23,7 @@ android {
         create("release") {
             // 固定的 release 签名：后续版本同签名才能覆盖安装（应用内更新的前提）
             // 凭据在根目录 keystore.properties（不入库）；缺失时退回内置学习用默认值
-            val props = java.util.Properties()
+            val props = Properties()
             val f = rootProject.file("keystore.properties")
             if (f.exists()) f.inputStream().use { props.load(it) }
             storeFile = rootProject.file(props.getProperty("storeFile", "wakeup-release.keystore").removePrefix("../"))
