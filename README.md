@@ -29,7 +29,12 @@
 | 导入：备份文件 / 分享口令 | ✅ | ✅ |
 | **导入：Excel/CSV 模板** | ✅ | ✅（CSV，Excel 另存即可） |
 | 桌面小部件：今日课程列表 | ✅ | ✅ |
-| **桌面小部件：整周课表网格** | ✅ | ✅（Canvas 绘制） |
+| **桌面小部件：整周课表网格** | ✅ | ✅（Canvas 绘制，**数据变更即时刷新**） |
+| **课程时间冲突检测** | ✅ | ✅（含起止周/单双周精确判断） |
+| **删除课程可撤销** | ✅ | ✅ |
+| **课程搜索（名/教师/地点）** | ✅ | ✅ |
+| **全量备份 / 恢复** | ✅ | ✅（多课表一键导出） |
+| **更新提示可「忽略此版本」** | — | ✅ |
 | 教务系统一键导入（1800+ 高校） | ✅ | ❌（需各校爬虫，不计划） |
 | 日历文件导出 | ✅ | ❌ |
 | 鸿蒙 / iOS 版 | ✅ | ❌（仅 Android） |
@@ -43,8 +48,10 @@
 - **Coil**：课表背景图加载（相册图片，含持久化读权限）
 - **RemoteViews AppWidget ×2**：今日课程列表 + 整周网格（Canvas 绘 Bitmap）
 - **Gson**：备份 JSON 与分享口令编解码
-- **JUnit4 单元测试**：周次计算 / 单双周过滤 / 分享口令 / CSV 解析（纯 JVM，可 CI）
-- **core 纯逻辑层**：`ScheduleMath` / `ShareCodec` / `CsvScheduleParser` 不依赖 Android
+- **core 纯逻辑层**：`ScheduleMath`（周次/单双周/冲突检测/日期归一）、`ShareCodec`、`CsvScheduleParser`、`BackupCodec` —— 零 Android 依赖，全部可单元测试
+- **JUnit4 单元测试 37 个**：周次边界 12 + 冲突检测 9 + 备份编解码 6 + CSV 解析 6 + 分享口令 4，`gradlew.bat testDebugUnitTest` 一键运行
+
+> 质量基线与后续优先级见 [`docs/ROADMAP.md`](docs/ROADMAP.md)，版本变更见 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 构建运行
 

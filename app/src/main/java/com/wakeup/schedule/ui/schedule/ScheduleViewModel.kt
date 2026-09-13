@@ -99,20 +99,45 @@ class ScheduleViewModel(private val app: WakeUpApp) : ViewModel() {
             toast.value = "导出失败"
             return@launch
         }
-        runCatching {
-            app.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-        }.onSuccess { toast.value = "已导出备份文件" }
-            .onFailure { toast.value = "导出失败：${it.message}" }
+        writeText(uri, json, "已导出当前课表备份")
+    }
+
+    /** 导出全部课表（含外观、节次时间）为单个备份文件 */
+    fun exportAllJson(uri: android.net.Uri) = viewModelScope.launch {
+        val json = runCatching { app.backupManager.exportAll() }.getOrNull()
+        if (json == null) {
+            toast.value = "导出失败"
+            return@launch
+        }
+        writeText(uri, json, "已导出全部课表备份")
+    }
+
+    private fun writeText(uri: android.net.Uri, text: String, okMessage: String) {
+        viewModelScope.launch {
+            runCatching {
+                app.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+            }.onSuccess { toast.value = okMessage }
+                .onFailure { toast.value = "导出失败：${it.message}" }
+        }
     }
 
     fun importJson(uri: android.net.Uri) = viewModelScope.launch {
         runCatching {
             val json = app.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
                 ?: error("无法读取文件")
-            val id = app.backupManager.import(json)
-            repo.prefs.setCurrentTable(id)
-        }.onSuccess { toast.value = "导入成功" }
-            .onFailure { toast.value = it.message ?: "导入失败" }
+            val ids = app.backupManager.importAll(json)
+            if (ids.isEmpty()) error("备份里没有可导入的课表")
+            repo.prefs.setCurrentTable(ids.last())
+            ids.size
+        }.onSuccess { count ->
+            toast.value = if (count > 1) "已导入 $count 张课表" else "导入成功"
+        }.onFailure { toast.value = it.message ?: "导入失败" }
+    }
+
+    /** 撤销删除：把快照恢复成同一门课（时间段一并恢复） */
+    fun restoreCourse(course: CourseEntity, slots: List<TimeSlotEntity>) = viewModelScope.launch {
+        repo.saveCourse(course.copy(id = 0), slots.map { it.copy(id = 0, courseId = 0) })
+        toast.value = "已恢复「${course.name}」"
     }
 
     fun exportShareCode(onResult: (String?) -> Unit) = viewModelScope.launch {

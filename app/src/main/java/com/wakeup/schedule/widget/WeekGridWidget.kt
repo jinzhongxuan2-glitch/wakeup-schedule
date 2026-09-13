@@ -15,7 +15,10 @@ import com.wakeup.schedule.MainActivity
 import com.wakeup.schedule.R
 import com.wakeup.schedule.WakeUpApp
 import com.wakeup.schedule.core.ScheduleMath
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 
@@ -23,24 +26,35 @@ import java.time.LocalDate
 class WeekGridWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { id ->
-            val options = appWidgetManager.getAppWidgetOptions(id)
-            val density = context.resources.displayMetrics.density
-            val w = ((options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)) * density).toInt().coerceAtLeast(600)
-            val h = ((options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180)) * density).toInt().coerceAtLeast(420)
-
-            val bitmap = WeekGridRenderer.render(context, w, h)
-            val views = RemoteViews(context.packageName, R.layout.widget_week_grid)
-            views.setImageViewBitmap(R.id.week_grid_image, bitmap)
-
-            val openIntent = Intent(context, MainActivity::class.java)
-            val pi = PendingIntent.getActivity(
-                context, 1, openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.week_grid_image, pi)
-            appWidgetManager.updateAppWidget(id, views)
+        // 绘制 + 查库都比较重，放到 IO 线程做，别阻塞主线程（ANR 风险）
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                appWidgetIds.forEach { id -> updateOne(appContext, appWidgetManager, id) }
+            } finally {
+                pendingResult.finish()
+            }
         }
+    }
+
+    private fun updateOne(context: Context, appWidgetManager: AppWidgetManager, id: Int) {
+        val options = appWidgetManager.getAppWidgetOptions(id)
+        val density = context.resources.displayMetrics.density
+        val w = ((options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)) * density).toInt().coerceAtLeast(600)
+        val h = ((options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180)) * density).toInt().coerceAtLeast(420)
+
+        val bitmap = WeekGridRenderer.render(context, w, h)
+        val views = RemoteViews(context.packageName, R.layout.widget_week_grid)
+        views.setImageViewBitmap(R.id.week_grid_image, bitmap)
+
+        val openIntent = Intent(context, MainActivity::class.java)
+        val pi = PendingIntent.getActivity(
+            context, 1, openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.week_grid_image, pi)
+        appWidgetManager.updateAppWidget(id, views)
     }
 }
 

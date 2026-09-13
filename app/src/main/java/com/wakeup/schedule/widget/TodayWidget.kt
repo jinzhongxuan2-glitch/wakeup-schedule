@@ -93,6 +93,8 @@ class TodayWidgetService : RemoteViewsService() {
                 setInt(R.id.item_color_bar, "setBackgroundColor", item.color)
                 setTextColor(R.id.item_time, item.color)
                 val openIntent = Intent(context, MainActivity::class.java)
+                // 整行都可点击：模板设置在 widget_list 上，这里给根布局与课程名都挂上 fill-in intent
+                setOnClickFillInIntent(R.id.item_root, openIntent)
                 setOnClickFillInIntent(R.id.item_name, openIntent)
             }
         }

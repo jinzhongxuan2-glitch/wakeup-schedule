@@ -328,8 +328,12 @@ fun TableManageScreen(app: WakeUpApp, onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        repo.deleteTable(t.id)
+                        // 用返回的新课表 id 修正当前课表偏好，
+                        // 否则偏好会指向已被删除的 id，导致列表高亮错乱、主界面显示错误
+                        val newId = repo.deleteTable(t.id)
+                        if (t.id == currentId) repo.prefs.setCurrentTable(newId)
                         deleteTarget = null
+                        onBack()
                     }
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },

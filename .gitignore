@@ -18,3 +18,4 @@ keystore.properties
 *.apk
 .workbuddy/
 .kotlin/
+.gh-token

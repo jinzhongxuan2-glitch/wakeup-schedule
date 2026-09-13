@@ -52,15 +52,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakeup.schedule.WakeUpApp
+import com.wakeup.schedule.core.ScheduleMath
 import com.wakeup.schedule.data.CourseEntity
 import com.wakeup.schedule.data.TimeSlotEntity
 import com.wakeup.schedule.data.WeekType
 import com.wakeup.schedule.ui.theme.CourseColors
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 private val DAYS = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
 
@@ -99,14 +102,28 @@ fun CourseEditScreen(app: WakeUpApp, courseId: Long, onBack: () -> Unit) {
     var note by remember { mutableStateOf("") }
     var colorIdx by remember { mutableIntStateOf(0) }
     val slots = remember { mutableStateListOf<SlotEdit>() }
+    // 同一课表下其它课程的时间段，用于冲突检测（课程名 + 时间段）
+    var otherSlots by remember { mutableStateOf(listOf<Pair<String, TimeSlotEntity>>()) }
 
     LaunchedEffect(Unit) {
-        val currentTableId = repo.prefs.currentTableId.first()
-        val table = repo.getTable(currentTableId)
+        var currentTableId = repo.prefs.currentTableId.first()
+        var table = repo.getTable(currentTableId)
+        if (table == null) {
+            // 自愈：没有课表时先建一张默认课表，避免课程挂到不存在的 tableId 上变成孤儿数据
+            currentTableId = repo.createTable(
+                name = "我的课表",
+                startDate = ScheduleMath.startDateForCurrentWeek(LocalDate.now(), 1).toString(),
+                totalWeeks = 20,
+                maxSections = 12
+            )
+            repo.prefs.setCurrentTable(currentTableId)
+            table = repo.getTable(currentTableId)
+        }
         if (table != null) {
             tableId = table.id
             totalWeeks = table.totalWeeks
             maxSections = table.maxSections
+            otherSlots = repo.getTableSlotPairs(table.id, excludeCourseId = if (courseId > 0) courseId else -1L)
         }
         if (courseId > 0) {
             repo.getCourseWithSlots(courseId)?.let { cw ->
@@ -241,6 +258,39 @@ fun CourseEditScreen(app: WakeUpApp, courseId: Long, onBack: () -> Unit) {
                     Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("添加时间段")
+                }
+            }
+
+            // 冲突提示：与同课表下其它课程时间重叠（已考虑起止周与单双周）
+            val conflictNotes = buildList {
+                slots.forEach { s ->
+                    val a = ScheduleMath.SlotKey(s.dayOfWeek, s.startSection, s.sectionCount, s.startWeek, s.endWeek, s.weekType)
+                    otherSlots.forEach { (otherName, other) ->
+                        val b = ScheduleMath.SlotKey(other.dayOfWeek, other.startSection, other.sectionCount, other.startWeek, other.endWeek, other.weekType)
+                        val weeks = ScheduleMath.overlappingWeeks(a, b, totalWeeks)
+                        if (weeks.isNotEmpty()) {
+                            add("与「$otherName」冲突：${DAYS[s.dayOfWeek - 1]} 第${a.startSection}-${a.endSection}节，第${weeks.first()}-${weeks.last()}周")
+                        }
+                    }
+                }
+            }.distinct()
+            if (conflictNotes.isNotEmpty()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "时间冲突提醒（共 ${conflictNotes.size} 处）",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        conflictNotes.forEach {
+                            Text("· $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
                 }
             }
 

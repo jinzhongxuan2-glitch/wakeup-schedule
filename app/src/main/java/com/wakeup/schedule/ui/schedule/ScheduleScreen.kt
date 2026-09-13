@@ -40,8 +40,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -79,6 +81,7 @@ import com.wakeup.schedule.ui.Routes
 import com.wakeup.schedule.update.AppUpdater
 import com.wakeup.schedule.update.RemoteVersion
 import com.wakeup.schedule.update.UpdateChecker
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -118,14 +121,21 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
     var detailCourse by remember { mutableStateOf<CourseEntity?>(null) }
     var showWeekEditor by remember { mutableStateOf(false) }
 
-    // 应用内更新：启动时检查一次
+    // 应用内更新：启动时检查一次（已被用户「忽略此版本」的不再提示）
     var updateInfo by remember { mutableStateOf<RemoteVersion?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    LaunchedEffect(Unit) { updateInfo = UpdateChecker.check() }
+    LaunchedEffect(Unit) {
+        val remote = UpdateChecker.check() ?: return@LaunchedEffect
+        val ignored = app.repository.prefs.ignoredVersionCode.first()
+        if (remote.versionCode != ignored) updateInfo = remote
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? -> uri?.let { vm.exportJson(it) } }
+    val exportAllLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? -> uri?.let { vm.exportAllJson(it) } }
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? -> uri?.let { vm.importJson(it) } }
@@ -483,6 +493,14 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("生成分享口令") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showExport = false
+                            exportAllLauncher.launch("wakeup-all-backup.json")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("导出全部课表（完整备份）") }
                 }
             },
             dismissButton = { TextButton(onClick = { showExport = false }) { Text("取消") } }
@@ -552,7 +570,17 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
                     updateInfo = null
                 }) { Text("立即更新") }
             },
-            dismissButton = { TextButton(onClick = { updateInfo = null }) { Text("下次再说") } }
+            dismissButton = {
+                Row {
+                    if (!info.force) {
+                        TextButton(onClick = {
+                            scope.launch { app.repository.prefs.setIgnoredVersionCode(info.versionCode) }
+                            updateInfo = null
+                        }) { Text("忽略此版本") }
+                    }
+                    TextButton(onClick = { updateInfo = null }) { Text("下次再说") }
+                }
+            }
         )
     }
 
@@ -592,8 +620,21 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
             },
             dismissButton = {
                 TextButton(onClick = {
+                    // 删除前留快照，配合 Snackbar 提供「撤销」
+                    val snapshotSlots = state.slots.filter { it.courseId == course.id }
                     vm.deleteCourse(course.id)
                     detailCourse = null
+                    scope.launch {
+                        val result = snackbar.showSnackbar(
+                            message = "已删除「${course.name}」",
+                            actionLabel = "撤销",
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Long
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            vm.restoreCourse(course, snapshotSlots)
+                        }
+                    }
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             }
         )

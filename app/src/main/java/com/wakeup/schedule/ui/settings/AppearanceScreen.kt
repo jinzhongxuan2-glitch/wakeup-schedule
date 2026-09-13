@@ -33,6 +33,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -67,6 +69,7 @@ import kotlin.math.roundToInt
 fun AppearanceScreen(app: WakeUpApp, onBack: () -> Unit) {
     val repo = app.repository
     val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
     var table by remember { mutableStateOf<TimeTableEntity?>(null) }
 
     var showWeekend by remember { mutableStateOf(true) }
@@ -77,12 +80,16 @@ fun AppearanceScreen(app: WakeUpApp, onBack: () -> Unit) {
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        uri?.let {
-            runCatching {
-                app.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
+        uri ?: return@rememberLauncherForActivityResult
+        // 拿不到持久化读权限就不能保存 URI —— 否则重启后图片必然失效
+        val granted = runCatching {
+            app.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }.isSuccess
+        if (granted) {
             bgType = 2
-            bgValue = it.toString()
+            bgValue = uri.toString()
+        } else {
+            scope.launch { snackbar.showSnackbar("无法长期读取该图片，请换一张或换用系统相册") }
         }
     }
 
@@ -103,7 +110,8 @@ fun AppearanceScreen(app: WakeUpApp, onBack: () -> Unit) {
                 title = { Text("课表外观") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)

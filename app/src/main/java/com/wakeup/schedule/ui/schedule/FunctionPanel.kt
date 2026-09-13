@@ -64,18 +64,25 @@ fun FunctionPanel(
 ) {
     val table = state.table ?: return
     var showCreate by remember { mutableStateOf(false) }
+    // 拖动时只更新本地值，松手才翻页 —— 否则每一帧都触发 animateScrollToPage，卡顿明显
+    var draggingWeek by remember(pagerWeek) { mutableStateOf<Int?>(null) }
+    val shownWeek = draggingWeek ?: pagerWeek
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
         // ===== 周数滑竿（跟随当前页面周） =====
         Text(
-            text = "第 $pagerWeek 周 / 共 ${table.totalWeeks} 周" +
-                if (pagerWeek == state.currentWeek) "（本周）" else "",
+            text = "第 $shownWeek 周 / 共 ${table.totalWeeks} 周" +
+                if (shownWeek == state.currentWeek) "（本周）" else "",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
         Slider(
-            value = pagerWeek.toFloat(),
-            onValueChange = { onJumpWeek(it.toInt().coerceIn(1, table.totalWeeks)) },
+            value = shownWeek.toFloat(),
+            onValueChange = { draggingWeek = it.toInt().coerceIn(1, table.totalWeeks) },
+            onValueChangeFinished = {
+                draggingWeek?.let { onJumpWeek(it) }
+                draggingWeek = null
+            },
             valueRange = 1f..table.totalWeeks.toFloat(),
             steps = (table.totalWeeks - 2).coerceAtLeast(0)
         )
