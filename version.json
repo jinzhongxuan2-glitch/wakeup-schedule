@@ -1,9 +1,9 @@
 {
-  "versionCode": 8,
-  "versionName": "1.2.5",
+  "versionCode": 9,
+  "versionName": "1.2.6",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
   "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "apkUrlCdn": "https://cdn.jsdelivr.net/gh/jinzhongxuan2-glitch/wakeup-schedule@dist/v1.2.5/app-release.apk",
-  "notes": "1.2.5 下载体验修复：\n· 新增 CDN 加速下载通道（实测 316 KB/s，比加速镜像快约 40 倍），并作为首选源\n· 自动换源：当前来源停滞 8 秒或速度持续过低时，自动切换到下一个源\n· 下载中显示实时速度与已下载/总大小，并可随时手动「换源」\n· 修复进度条视觉：改为自绘左→右填充（原 Material 组件的停止指示点看起来像从右往左）",
+  "apkUrlCdn": "https://cdn.jsdelivr.net/gh/jinzhongxuan2-glitch/wakeup-schedule@dist/v1.2.6/app-release.apk",
+  "notes": "1.2.6 开下前先测速选源：\n· 并发探测各下载源（每个最多读 256KB / 2.5 秒），选当时最快的那个再正式下载\n· 实测同一通道速度会在几分钟内从 378 KB/s 掉到 0，静态优先级经常挑到最慢的通道\n· 对话框内显示各源实测速度（如「CDN 320 KB/s ｜ 镜像 8 KB/s ｜ 官方 失败」）\n· 「重试」会重新测速；下载中的看门狗（停滞/过慢自动换源）继续生效",
   "force": false
 }

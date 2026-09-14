@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.wakeup.schedule.WakeUpApp
 import com.wakeup.schedule.core.UpdateInfo
 import com.wakeup.schedule.core.UpdateManifest
+import com.wakeup.schedule.core.UpdateSourceProbe
 import com.wakeup.schedule.update.AppUpdater
 import com.wakeup.schedule.update.UpdateChecker
 import kotlinx.coroutines.Dispatchers
@@ -89,6 +90,8 @@ fun UpdateCenter(app: WakeUpApp) {
     var speedBps by remember { mutableLongStateOf(0L) }
     var sourceLabel by remember { mutableStateOf("") }
     var switching by remember { mutableStateOf(false) }
+    /** 测速结果摘要，展示在对话框里便于判断网络状况 */
+    var probeInfo by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         val ignored = prefs.ignoredVersionCode.first()
@@ -127,6 +130,44 @@ fun UpdateCenter(app: WakeUpApp) {
                 downloadId = id
             } else {
                 failure = "无法开始下载（$label）：系统下载服务拒绝了该地址，可改用浏览器下载"
+            }
+        }
+    }
+
+    /**
+     * 智能启动：先并发测速，选最快的源再下。
+     *
+     * 实测同一通道速度会在几分钟内从 378 KB/s 掉到 4 KB/s，
+     * 静态优先级经常挑到当时最慢的源；测速窗口仅 2.5 秒、单源最多读 256 KB，代价很小。
+     */
+    fun startSmartDownload() {
+        val list = candidates()
+        if (list.isEmpty()) {
+            failure = "更新清单里没有可用的下载地址"
+            return
+        }
+        if (list.size == 1) {
+            startDownload(0)
+            return
+        }
+        dialogVisible = true
+        failure = null
+        progress = null
+        probeInfo = ""
+        speedBps = 0
+        statusText = "正在测速，挑选最快的下载源…"
+        scope.launch {
+            val samples = withContext(Dispatchers.IO) { UpdateSourceProbe.probeAll(list) }
+            val summary = UpdateSourceProbe.summary(samples)
+            probeInfo = summary
+            val best = UpdateSourceProbe.pickFastest(samples)
+            if (best != null) {
+                val index = list.indexOfFirst { it.second == best.url }.coerceAtLeast(0)
+                startDownload(index)
+                statusText = "已选「${best.label}」（测速 ${UpdateSourceProbe.fmtSpeed(best.speedBps)}）"
+            } else {
+                startDownload(candidateIndex)
+                statusText = "各源测速都不理想，按默认顺序尝试…"
             }
         }
     }
@@ -275,7 +316,8 @@ fun UpdateCenter(app: WakeUpApp) {
                             dialogVisible = true
                         }
                     } else {
-                        startDownload(candidateIndex)
+                        // 先并发测速再选源，避免挑到当时最慢的通道
+                        startSmartDownload()
                     }
                 }) { Text(if (pendingInstall != null) "立即安装" else "立即更新") }
             },
@@ -320,6 +362,15 @@ fun UpdateCenter(app: WakeUpApp) {
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(statusText, fontSize = 13.sp, lineHeight = 19.sp)
+                        if (probeInfo.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "测速：$probeInfo",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+                        }
                         if (switching) {
                             Spacer(Modifier.height(6.dp))
                             Text(
@@ -389,7 +440,8 @@ fun UpdateCenter(app: WakeUpApp) {
             },
             dismissButton = {
                 if (err != null) {
-                    TextButton(onClick = { startDownload(candidateIndex) }) { Text("重试") }
+                    // 重试时重新测速：网络状况可能已经变了
+                    TextButton(onClick = { startSmartDownload() }) { Text("重试") }
                 }
             }
         )
