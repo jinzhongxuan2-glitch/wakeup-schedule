@@ -23,6 +23,8 @@ data class UpdateInfo(
     val apkUrl: String,
     /** 可选的备用下载地址：GitHub 直连不通时用（例如国内加速镜像） */
     val apkUrlMirror: String = "",
+    /** 可选的 CDN 地址：APK 放在仓库分支上由 CDN 分发（实测比镜像还快） */
+    val apkUrlCdn: String = "",
     val notes: String = "",
     val force: Boolean = false
 )
@@ -40,6 +42,7 @@ object UpdateManifest {
         val versionName: String? = null,
         val apkUrl: String? = null,
         val apkUrlMirror: String? = null,
+        val apkUrlCdn: String? = null,
         val notes: String? = null,
         val force: Boolean? = null
     )
@@ -56,6 +59,7 @@ object UpdateManifest {
             versionName = dto.versionName?.trim().orEmpty(),
             apkUrl = url,
             apkUrlMirror = dto.apkUrlMirror?.trim().orEmpty(),
+            apkUrlCdn = dto.apkUrlCdn?.trim().orEmpty(),
             notes = dto.notes.orEmpty(),
             force = dto.force ?: false
         )
@@ -65,19 +69,23 @@ object UpdateManifest {
         remote.versionCode > localVersionCode
 
     /**
-     * 下载地址候选列表（按尝试顺序）。
-     * 每个元素是 `显示名 to 地址`，供失败后切换来源重试用。
+     * 下载地址候选列表（**按推荐顺序**：CDN → 镜像 → GitHub 官方）。
+     * 每个元素是 `显示名 to 地址`，失败或过慢时可依次切换。
      *
-     * @param preferredIndex 优先使用的来源下标（0=官方，1=镜像）。
-     *        传入越界值时按官方优先处理；镜像与官方地址相同时不会重复列出。
+     * 顺序依据实测：同一时刻 CDN（jsDelivr）约 316 KB/s、加速镜像 4~8 KB/s、
+     * GitHub 直连在无 VPN 时基本不可用 —— 所以默认把 CDN 放第一位。
+     *
+     * @param preferredIndex 用户上次成功的来源下标；越界时按推荐顺序处理
      */
     fun downloadCandidates(remote: UpdateInfo, preferredIndex: Int = 0): List<Pair<String, String>> {
         val ordered = buildList {
-            add("GitHub 官方" to remote.apkUrl)
+            if (remote.apkUrlCdn.isNotBlank()) add("CDN 加速" to remote.apkUrlCdn)
             if (remote.apkUrlMirror.isNotBlank() && remote.apkUrlMirror != remote.apkUrl) {
                 add("镜像加速" to remote.apkUrlMirror)
             }
-        }
+            add("GitHub 官方" to remote.apkUrl)
+        }.distinctBy { it.second }
+
         if (preferredIndex in 1 until ordered.size) {
             return listOf(ordered[preferredIndex]) + ordered.filterIndexed { i, _ -> i != preferredIndex }
         }

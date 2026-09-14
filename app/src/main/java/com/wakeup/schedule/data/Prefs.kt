@@ -30,10 +30,10 @@ class Prefs(private val context: Context) {
     val ignoredVersionCode: Flow<Int> = context.dataStore.data.map { it[KEY_IGNORED_VERSION] ?: 0 }
 
     /**
-     * 默认优先使用镜像源（下标 1）。
-     * 实测同一网络下 GitHub 直连约 35 KB/s、镜像约 378 KB/s，差 10 倍。
+     * 上次成功下载更新的来源下标，默认 0 = **CDN 加速**。
+     * 实测同一时刻：CDN（jsDelivr）约 316 KB/s、加速镜像 4~8 KB/s、GitHub 直连无 VPN 时不可用。
      */
-    val updateSourceIndex: Flow<Int> = context.dataStore.data.map { it[KEY_UPDATE_SOURCE] ?: 1 }
+    val updateSourceIndex: Flow<Int> = context.dataStore.data.map { it[KEY_UPDATE_SOURCE] ?: 0 }
 
     suspend fun setIgnoredVersionCode(code: Int) {
         context.dataStore.edit { it[KEY_IGNORED_VERSION] = code }

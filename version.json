@@ -1,8 +1,9 @@
 {
-  "versionCode": 7,
-  "versionName": "1.2.4",
+  "versionCode": 8,
+  "versionName": "1.2.5",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
   "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.2.4 修复教务导入被验证码误拦：\n· 之前只看登录页出现「验证码」字样就阻断，导致本可正常登录的账号被拦下\n· 现在先调用官方接口 checkNeedCaptcha 询问该账号是否需要验证码，不需要就直接登录\n· 需要验证码时才显示图片验证码（可点图或「换一张」刷新），登录失败会自动换新验证码\n· 登录失败原因区分「密码错误」与「验证码错误」，提示更准确\n· 单元测试 70 → 80 个",
+  "apkUrlCdn": "https://cdn.jsdelivr.net/gh/jinzhongxuan2-glitch/wakeup-schedule@dist/v1.2.5/app-release.apk",
+  "notes": "1.2.5 下载体验修复：\n· 新增 CDN 加速下载通道（实测 316 KB/s，比加速镜像快约 40 倍），并作为首选源\n· 自动换源：当前来源停滞 8 秒或速度持续过低时，自动切换到下一个源\n· 下载中显示实时速度与已下载/总大小，并可随时手动「换源」\n· 修复进度条视觉：改为自绘左→右填充（原 Material 组件的停止指示点看起来像从右往左）",
   "force": false
 }
