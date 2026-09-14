@@ -1,8 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.2.2",
+  "versionCode": 6,
+  "versionName": "1.2.3",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
   "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.2.2 更新体验优化：\n· 默认走国内镜像源（实测比 GitHub 直连快约 10 倍：378 KB/s vs 35 KB/s）\n· 自动记住上次成功的下载来源，下次优先用它\n· 安装包新增签名校验与版本校验：镜像若返回被替换的包或缓存的旧版本，会被直接拦下\n· 失败提示补充：若手机已开 VPN，切 GitHub 官方源通常也能通",
+  "notes": "1.2.3 更新检查多源兜底：\n· 检查更新的清单地址增加 jsDelivr CDN 与加速代理兜底\n· 修复 raw.githubusercontent.com 间歇性不可达导致「有时收不到更新提示」的问题\n· 下载仍默认走镜像源，并保留签名与版本校验",
   "force": false
 }
