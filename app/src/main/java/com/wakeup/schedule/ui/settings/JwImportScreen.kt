@@ -1,6 +1,10 @@
 package com.wakeup.schedule.ui.settings
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,19 +47,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakeup.schedule.WakeUpApp
 import com.wakeup.schedule.core.jw.JwClient
 import com.wakeup.schedule.core.jw.JwCourse
 import com.wakeup.schedule.core.jw.JwException
+import com.wakeup.schedule.core.jw.JwLoginAnalysis
+import com.wakeup.schedule.core.jw.JwLoginPage
+import com.wakeup.schedule.core.jw.JwLoginResult
 import com.wakeup.schedule.core.jw.JwScheduleHtmlParser
 import com.wakeup.schedule.core.jw.JwTerm
 import com.wakeup.schedule.core.jw.JwTermDate
@@ -69,10 +80,13 @@ import kotlinx.coroutines.withContext
 /**
  * 从「中南大学本科教务系统」直接导入课表。
  *
- * 设计要点：
- * - 学号/密码只用于本次登录请求，不写入数据库、不写日志（日志里只记长度）
- * - 登录与解析全在 IO 线程；解析逻辑在 core 层有单元测试覆盖
- * - 出错时给出可操作提示（校园网/VPN、验证码、密码错误…）并保留调试日志供反馈
+ * 登录流程（实测学校 CAS 行为）：
+ * 1. 打开登录页并**询问服务端该账号是否需要验证码**（页面里始终有验证码标记，不能据此阻断）
+ * 2. 不需要 → 直接登录；需要 → 显示验证码图片让用户输入
+ * 3. 登录失败时按返回页面的错误文案区分「密码错误」与「验证码错误」，
+ *    后者自动换一张新验证码；`execution` 是一次性令牌，重试会重新取登录页
+ *
+ * 隐私：学号密码只用于本次登录请求，不写数据库、不写日志（日志只记密码长度）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,18 +103,114 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
     var status by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    // 验证码阶段
+    var loginPage by remember { mutableStateOf<JwLoginPage?>(null) }
+    var captchaImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var captchaInput by remember { mutableStateOf("") }
+
     var courses by remember { mutableStateOf<List<JwCourse>>(emptyList()) }
     var terms by remember { mutableStateOf<List<JwTerm>>(emptyList()) }
     var selectedTerm by remember { mutableStateOf<JwTerm?>(null) }
-    var loggedIn by remember { mutableStateOf(false) }
 
     var logText by remember { mutableStateOf("") }
     var showLog by remember { mutableStateOf(false) }
 
     val client = remember { JwClient() }
 
-    /** 登录（仅首次）+ 读取指定学期（null 表示教务系统默认学期） */
-    fun load(term: JwTerm?) {
+    fun decode(bytes: ByteArray?): ImageBitmap? = bytes?.let {
+        runCatching {
+            BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+        }.getOrNull()
+    }
+
+    /** 登录成功后读取课表 */
+    fun loadSchedule(term: JwTerm?) {
+        scope.launch {
+            busy = true
+            error = null
+            status = if (term == null) "正在读取课表…" else "正在读取「${term.name}」…"
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val html = client.fetchScheduleHtml(term?.id)
+                    JwScheduleHtmlParser.parse(html, client.log) to JwScheduleHtmlParser.parseTerms(html)
+                }
+                courses = result.first
+                if (result.second.isNotEmpty()) {
+                    terms = result.second
+                    selectedTerm = result.second.firstOrNull { it.id == term?.id } ?: result.second.first()
+                }
+                status = "读取成功：${courses.size} 门课程，${courses.sumOf { it.slots.size }} 个时间段"
+            } catch (e: JwException) {
+                error = e.message
+                status = ""
+            } catch (e: Exception) {
+                error = "读取课表失败：${e.message ?: e.javaClass.simpleName}"
+                status = ""
+            } finally {
+                logText = client.log.text()
+                busy = false
+            }
+        }
+    }
+
+    /** 提交登录（captcha 为 null 表示不带验证码） */
+    fun submitLogin(captcha: String?) {
+        scope.launch {
+            busy = true
+            error = null
+            status = "正在登录…"
+            try {
+                val result: JwLoginResult = withContext(Dispatchers.IO) {
+                    // execution 一次性：每次提交都确保用的是当前登录页状态
+                    val page = loginPage ?: client.fetchLoginPage().also { loginPage = it }
+                    client.submitLogin(studentId.trim(), password, page, captcha)
+                }
+                when {
+                    result.success -> {
+                        captchaImage = null
+                        captchaInput = ""
+                        status = "登录成功"
+                        loadSchedule(null)
+                    }
+
+                    result.outcome == JwLoginAnalysis.Outcome.NEED_CAPTCHA -> {
+                        // 换新登录页 + 新验证码（旧 execution 已失效）
+                        val img = withContext(Dispatchers.IO) {
+                            loginPage = client.fetchLoginPage()
+                            client.fetchCaptcha()
+                        }
+                        captchaImage = decode(img)
+                        captchaInput = ""
+                        error = if (captcha.isNullOrBlank())
+                            "该账号需要验证码，请按图片输入" else "验证码不正确或已过期，已换一张，请重新输入"
+                        status = ""
+                    }
+
+                    result.outcome == JwLoginAnalysis.Outcome.BAD_CREDENTIALS -> {
+                        error = "账号或密码错误，请检查后重试"
+                        status = ""
+                    }
+
+                    else -> {
+                        error = "登录未成功（原因未识别），请展开调试日志反馈给开发者"
+                        status = ""
+                    }
+                }
+            } catch (e: JwException) {
+                error = e.message
+                status = ""
+            } catch (e: Exception) {
+                error = "登录失败：${e.message ?: e.javaClass.simpleName}"
+                status = ""
+            } finally {
+                logText = client.log.text()
+                busy = false
+            }
+        }
+    }
+
+    /** 第一步：取登录页 + 问服务端是否需要验证码 */
+    fun startLogin() {
         if (studentId.isBlank() || password.isBlank()) {
             error = "请先填写学号与密码"
             return
@@ -108,38 +218,42 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
         scope.launch {
             busy = true
             error = null
-            status = if (term == null) "正在登录并读取课表…" else "正在读取「${term.name}」…"
+            courses = emptyList()
+            status = "正在打开统一认证登录页…"
             try {
-                val result = withContext(Dispatchers.IO) {
-                    if (!loggedIn) {
-                        client.login(studentId.trim(), password)
-                    }
-                    val html = client.fetchScheduleHtml(term?.id)
-                    JwScheduleHtmlParser.parse(html, client.log) to
-                        JwScheduleHtmlParser.parseTerms(html)
+                val page = withContext(Dispatchers.IO) { client.fetchLoginPage().also { loginPage = it } }
+                val need = withContext(Dispatchers.IO) { client.checkNeedCaptcha(studentId.trim()) }
+                status = if (need) "该账号当前需要验证码" else "无需验证码，正在登录…"
+                if (need) {
+                    val img = withContext(Dispatchers.IO) { client.fetchCaptcha() }
+                    captchaImage = decode(img)
+                    captchaInput = ""
+                    if (img == null) error = "验证码图片获取失败，可点「换一张」重试"
+                } else {
+                    captchaImage = null
+                    submitLogin(null)
                 }
-                loggedIn = true
-                courses = result.first
-                if (result.second.isNotEmpty()) {
-                    terms = result.second
-                    selectedTerm = result.second.firstOrNull { it.id == term?.id }
-                        ?: result.second.firstOrNull { it.name.isNotBlank() }
-                } else if (term == null) {
-                    selectedTerm = null
-                }
-                status = "读取成功：${courses.size} 门课程，" +
-                    "${courses.sumOf { it.slots.size }} 个时间段"
             } catch (e: JwException) {
                 error = e.message
                 status = ""
-                if (e.kind == com.wakeup.schedule.core.jw.JwErrorKind.BAD_CREDENTIALS) loggedIn = false
             } catch (e: Exception) {
-                error = "读取失败：${e.message ?: e.javaClass.simpleName}"
+                error = "打开登录页失败：${e.message ?: e.javaClass.simpleName}"
                 status = ""
             } finally {
                 logText = client.log.text()
                 busy = false
             }
+        }
+    }
+
+    /** 换一张验证码（同一登录页会话内刷新即可） */
+    fun refreshCaptcha() {
+        scope.launch {
+            error = null
+            val img = withContext(Dispatchers.IO) { client.fetchCaptcha() }
+            captchaImage = decode(img)
+            captchaInput = ""
+            logText = client.log.text()
         }
     }
 
@@ -185,7 +299,6 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                     )
                 }
                 repo.prefs.setCurrentTable(tableId)
-                status = "已导入「$tableName」：${courses.size} 门课程（开学日按 $startDate 推算，可在课表设置里修改）"
                 onBack()
             } catch (e: Exception) {
                 error = "导入失败：${e.message}"
@@ -214,7 +327,6 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // 说明
             Card(
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
@@ -228,7 +340,8 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                     Text(
                         "csujwc.its.csu.edu.cn（统一认证登录）\n" +
                             "· 学号密码仅用于本次登录请求，不会保存到手机\n" +
-                            "· 教务系统通常需要校园网或学校 VPN，校外失败属正常",
+                            "· 教务系统通常需要校园网或学校 VPN，校外失败属正常\n" +
+                            "· 验证码仅在服务端要求时才会出现",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
@@ -242,6 +355,7 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 onValueChange = { studentId = it.trim() },
                 label = { Text("学号") },
                 singleLine = true,
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(10.dp))
@@ -250,6 +364,7 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 onValueChange = { password = it },
                 label = { Text("密码") },
                 singleLine = true,
+                enabled = !busy,
                 visualTransformation = if (passwordVisible) VisualTransformation.None
                 else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -263,9 +378,59 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // ===== 验证码（仅在服务端要求时出现） =====
+            if (captchaImage != null) {
+                Spacer(Modifier.height(14.dp))
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("请输入验证码", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                bitmap = captchaImage!!,
+                                contentDescription = "验证码图片",
+                                modifier = Modifier
+                                    .size(width = 120.dp, height = 44.dp)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable { refreshCaptcha() }
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            TextButton(onClick = { refreshCaptcha() }, enabled = !busy) {
+                                Text("换一张", fontSize = 13.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = captchaInput,
+                            onValueChange = { captchaInput = it.take(10) },
+                            label = { Text("验证码") },
+                            singleLine = true,
+                            enabled = !busy,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = { submitLogin(captchaInput.trim()) },
+                            enabled = !busy && captchaInput.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("提交验证码并登录") }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(14.dp))
             Button(
-                onClick = { load(null) },
+                onClick = { startLogin() },
                 enabled = !busy && studentId.isNotBlank() && password.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -302,7 +467,6 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 }
             }
 
-            // 学期切换
             if (courses.isNotEmpty() && terms.isNotEmpty()) {
                 Spacer(Modifier.height(18.dp))
                 Text("学期", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
@@ -313,7 +477,7 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                             selected = term.id == selectedTerm?.id,
                             onClick = {
                                 selectedTerm = term
-                                load(term)
+                                loadSchedule(term)
                             },
                             label = { Text(term.name, fontSize = 12.sp) }
                         )
@@ -321,7 +485,6 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 }
             }
 
-            // 预览 + 导入
             if (courses.isNotEmpty()) {
                 Spacer(Modifier.height(18.dp))
                 HorizontalDivider()
@@ -358,7 +521,6 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 ) { Text("导入为一门新课表") }
             }
 
-            // 调试日志
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { showLog = !showLog }) {
@@ -378,9 +540,7 @@ fun JwImportScreen(app: WakeUpApp, onBack: () -> Unit) {
                 ) {
                     Text(
                         logText.ifBlank { "（暂无日志，先点一次「登录并读取课表」）" },
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(10.dp),
+                        modifier = Modifier.padding(10.dp),
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 15.sp

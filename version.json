@@ -1,8 +1,8 @@
 {
-  "versionCode": 6,
-  "versionName": "1.2.3",
+  "versionCode": 7,
+  "versionName": "1.2.4",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
   "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.2.3 更新检查多源兜底：\n· 检查更新的清单地址增加 jsDelivr CDN 与加速代理兜底\n· 修复 raw.githubusercontent.com 间歇性不可达导致「有时收不到更新提示」的问题\n· 下载仍默认走镜像源，并保留签名与版本校验",
+  "notes": "1.2.4 修复教务导入被验证码误拦：\n· 之前只看登录页出现「验证码」字样就阻断，导致本可正常登录的账号被拦下\n· 现在先调用官方接口 checkNeedCaptcha 询问该账号是否需要验证码，不需要就直接登录\n· 需要验证码时才显示图片验证码（可点图或「换一张」刷新），登录失败会自动换新验证码\n· 登录失败原因区分「密码错误」与「验证码错误」，提示更准确\n· 单元测试 70 → 80 个",
   "force": false
 }
