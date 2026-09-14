@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  默认禁止明文 HTTP（安全默认值），只对学校教务系统域名放开：
+  中南大学本科教务系统本体是 http，统一认证是 https。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">csujwc.its.csu.edu.cn</domain>
+        <domain includeSubdomains="true">csu.edu.cn</domain>
+    </domain-config>
+</network-security-config>

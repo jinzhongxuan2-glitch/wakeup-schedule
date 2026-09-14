@@ -11,6 +11,7 @@ datastore = "1.1.1"
 gson = "2.11.0"
 coreKtx = "1.13.1"
 coil = "2.6.0"
+jsoup = "1.18.1"
 junit = "4.13.2"
 
 [libraries]
@@ -32,6 +33,7 @@ room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]

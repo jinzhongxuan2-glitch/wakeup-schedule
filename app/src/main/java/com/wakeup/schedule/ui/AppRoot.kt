@@ -12,6 +12,7 @@ import com.wakeup.schedule.ui.list.CourseListScreen
 import com.wakeup.schedule.ui.schedule.ScheduleScreen
 import com.wakeup.schedule.ui.settings.AppearanceScreen
 import com.wakeup.schedule.ui.settings.GlobalSettingsScreen
+import com.wakeup.schedule.ui.settings.JwImportScreen
 import com.wakeup.schedule.ui.settings.TableManageScreen
 import com.wakeup.schedule.ui.settings.TableSettingsScreen
 import com.wakeup.schedule.ui.settings.TimeSettingsScreen
@@ -24,6 +25,7 @@ object Routes {
     const val GLOBAL_SETTINGS = "global_settings"
     const val TABLE_MANAGE = "table_manage"
     const val APPEARANCE = "appearance"
+    const val JW_IMPORT = "jw_import"
 
     fun edit(courseId: Long = -1L) = if (courseId > 0) "edit?courseId=$courseId" else "edit"
 }
@@ -49,5 +51,6 @@ fun AppRoot(app: WakeUpApp) {
         composable(Routes.GLOBAL_SETTINGS) { GlobalSettingsScreen(app, onBack = { nav.popBackStack() }) }
         composable(Routes.TABLE_MANAGE) { TableManageScreen(app, onBack = { nav.popBackStack() }) }
         composable(Routes.APPEARANCE) { AppearanceScreen(app, onBack = { nav.popBackStack() }) }
+        composable(Routes.JW_IMPORT) { JwImportScreen(app, onBack = { nav.popBackStack() }) }
     }
 }

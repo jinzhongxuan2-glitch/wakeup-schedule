@@ -15,8 +15,8 @@ android {
         applicationId = "com.wakeup.schedule"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.gson)
     implementation(libs.coil.compose)
+    implementation(libs.jsoup)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

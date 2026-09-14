@@ -443,6 +443,14 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
                     Button(
                         onClick = {
                             showImport = false
+                            nav.navigate(Routes.JW_IMPORT)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("从教务系统导入（中南大学）") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showImport = false
                             importLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
                         },
                         modifier = Modifier.fillMaxWidth()

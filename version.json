@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
+  "versionCode": 3,
+  "versionName": "1.2.0",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.1.0 稳定性与体验提升：\n· 修复课程保存事务、删课表后偏好错乱、开学日非周一导致的周次偏移\n· 清除主线程阻塞；小部件改为异步渲染并在数据变更后即时刷新\n· 新增课程时间冲突检测、删除可撤销、课程搜索、全量备份、忽略此版本\n· 单元测试 22 → 37 个，全部通过",
+  "notes": "1.2.0 教务系统直接导入（中南大学）：\n· 新增「从教务系统导入」：输学号密码即可拉取课表，自动识别表头排版/单双周/逗号周次/一格多课\n· 修复课程名括号被误删（高等数学A(下) 不再变成 高等数学A）、无节次标注时课节错位、GBK 中文乱码\n· 学号密码仅用于当次登录，不保存\n· 单元测试 37 → 61 个，全部通过",
   "force": false
 }
