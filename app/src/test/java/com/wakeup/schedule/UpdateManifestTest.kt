@@ -59,6 +59,29 @@ class UpdateManifestTest {
     }
 
     @Test
+    fun `可以指定优先使用的下载源`() {
+        val info = UpdateManifest.parse(full)!!
+        // 默认官方优先
+        assertEquals("GitHub 官方", UpdateManifest.downloadCandidates(info, 0)[0].first)
+        // 指定镜像优先时镜像排第一，官方仍然保留在后面兜底
+        val mirrorFirst = UpdateManifest.downloadCandidates(info, 1)
+        assertEquals("镜像加速", mirrorFirst[0].first)
+        assertEquals("GitHub 官方", mirrorFirst[1].first)
+        assertEquals(2, mirrorFirst.size)
+    }
+
+    @Test
+    fun `优先下标越界或没有镜像时安全退回官方优先`() {
+        val noMirror = UpdateManifest.parse("""{"versionCode":9,"apkUrl":"https://a/b.apk"}""")!!
+        // 没有镜像却指定镜像优先 → 只能给官方
+        assertEquals("GitHub 官方", UpdateManifest.downloadCandidates(noMirror, 1)[0].first)
+        assertEquals(1, UpdateManifest.downloadCandidates(noMirror, 5).size)
+        val info = UpdateManifest.parse(full)!!
+        assertEquals("GitHub 官方", UpdateManifest.downloadCandidates(info, -1)[0].first)
+        assertEquals("GitHub 官方", UpdateManifest.downloadCandidates(info, 99)[0].first)
+    }
+
+    @Test
     fun `版本号比较只认更大`() {
         val info = UpdateManifest.parse(full)!!
         assertTrue(UpdateManifest.isNewer(info, localVersionCode = 3))

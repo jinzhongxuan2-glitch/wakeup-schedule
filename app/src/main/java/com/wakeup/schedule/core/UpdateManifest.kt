@@ -67,11 +67,20 @@ object UpdateManifest {
     /**
      * 下载地址候选列表（按尝试顺序）。
      * 每个元素是 `显示名 to 地址`，供失败后切换来源重试用。
+     *
+     * @param preferredIndex 优先使用的来源下标（0=官方，1=镜像）。
+     *        传入越界值时按官方优先处理；镜像与官方地址相同时不会重复列出。
      */
-    fun downloadCandidates(remote: UpdateInfo): List<Pair<String, String>> = buildList {
-        add("GitHub 官方" to remote.apkUrl)
-        if (remote.apkUrlMirror.isNotBlank() && remote.apkUrlMirror != remote.apkUrl) {
-            add("镜像加速" to remote.apkUrlMirror)
+    fun downloadCandidates(remote: UpdateInfo, preferredIndex: Int = 0): List<Pair<String, String>> {
+        val ordered = buildList {
+            add("GitHub 官方" to remote.apkUrl)
+            if (remote.apkUrlMirror.isNotBlank() && remote.apkUrlMirror != remote.apkUrl) {
+                add("镜像加速" to remote.apkUrlMirror)
+            }
         }
+        if (preferredIndex in 1 until ordered.size) {
+            return listOf(ordered[preferredIndex]) + ordered.filterIndexed { i, _ -> i != preferredIndex }
+        }
+        return ordered
     }
 }

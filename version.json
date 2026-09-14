@@ -1,8 +1,8 @@
 {
-  "versionCode": 4,
-  "versionName": "1.2.1",
+  "versionCode": 5,
+  "versionName": "1.2.2",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
   "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.2.1 修复「点立即更新没反应」：\n· 改用轮询获取下载状态，不再依赖收不到的下载完成广播\n· 更新过程显示实时进度与失败原因，可换镜像源重试、用浏览器下载\n· 新增「安装未知应用」权限引导；下载包校验后才安装\n· 已下载但没装成的更新包，下次进入可直接继续安装\n· 新增国内可用的镜像下载源（GitHub 直连不通时自动可切）",
+  "notes": "1.2.2 更新体验优化：\n· 默认走国内镜像源（实测比 GitHub 直连快约 10 倍：378 KB/s vs 35 KB/s）\n· 自动记住上次成功的下载来源，下次优先用它\n· 安装包新增签名校验与版本校验：镜像若返回被替换的包或缓存的旧版本，会被直接拦下\n· 失败提示补充：若手机已开 VPN，切 GitHub 官方源通常也能通",
   "force": false
 }

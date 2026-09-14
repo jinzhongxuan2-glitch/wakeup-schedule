@@ -130,21 +130,71 @@ object AppUpdater {
 
     /**
      * 校验下载下来的文件是不是**本应用的有效安装包**。
-     * GitHub 异常时可能返回 HTML 错误页，直接丢给安装器会毫无反应，所以必须校验。
+     * GitHub（以及第三方镜像）在异常时可能返回 HTML 错误页或缓存的旧版本，
+     * 直接丢给安装器会毫无反应或装成旧版，所以必须校验：
+     * 1. 能解析出包信息（排除 HTML/半截文件）
+     * 2. 包名一致
+     * 3. 版本号不低于远端声明（排除镜像缓存返回旧版）
+     * 4. 签名与当前应用一致（镜像不可信时，这一步能拦住被替换的安装包）
      */
-    fun verifyApk(context: Context, file: File): VerifyResult {
+    fun verifyApk(context: Context, file: File, expectedVersionCode: Int? = null): VerifyResult {
         if (!file.exists()) return VerifyResult(true, "安装包不存在")
-        if (file.length() < 1024) return VerifyResult(true, "下载文件不完整（${file.length()} 字节）")
+        if (file.length() < 1024) return VerifyResult(true, "下载文件不完整（只有 ${file.length()} 字节）")
 
-        val info = runCatching {
-            context.packageManager.getPackageArchiveInfo(file.absolutePath, PackageManager.GET_ACTIVITIES)
-        }.getOrNull() ?: return VerifyResult(true, "下载到的不是有效安装包（可能被网络拦截或下载中断）")
-
-        if (info.packageName != context.packageName) {
-            return VerifyResult(true, "安装包包名不匹配（${info.packageName}）")
+        val pm = context.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
         }
+
+        val archive = runCatching { pm.getPackageArchiveInfo(file.absolutePath, flags) }.getOrNull()
+            ?: return VerifyResult(true, "下载到的不是有效安装包（可能被网络拦截或下载中断）")
+
+        if (archive.packageName != context.packageName) {
+            return VerifyResult(true, "安装包包名不匹配（${archive.packageName}）")
+        }
+
+        if (expectedVersionCode != null) {
+            val archiveCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                archive.longVersionCode
+            } else {
+                @Suppress("DEPRECATION") archive.versionCode.toLong()
+            }
+            if (archiveCode < expectedVersionCode) {
+                return VerifyResult(
+                    true,
+                    "下载到的是旧版本（v$archiveCode < v$expectedVersionCode），多半是镜像缓存，请换源重试"
+                )
+            }
+        }
+
+        val installedSigner = installedFirstSigner(pm, context.packageName, flags)
+        val archiveSigner = archiveFirstSigner(archive)
+        if (installedSigner != null && archiveSigner != null && !installedSigner.contentEquals(archiveSigner)) {
+            return VerifyResult(true, "安装包签名与当前应用不一致，已拒绝安装（请改用 GitHub 官方源重试）")
+        }
+
         return VerifyResult(false)
     }
+
+    private fun installedFirstSigner(pm: PackageManager, pkg: String, flags: Int): ByteArray? {
+        val info = runCatching { pm.getPackageInfo(pkg, flags) }.getOrNull() ?: return null
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val si = info.signingInfo ?: return null
+            (si.apkContentsSigners ?: si.signingCertificateHistory)?.firstOrNull()?.toByteArray()
+        } else {
+            @Suppress("DEPRECATION") info.signatures?.firstOrNull()?.toByteArray()
+        }
+    }
+
+    private fun archiveFirstSigner(archive: android.content.pm.PackageInfo): ByteArray? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val si = archive.signingInfo ?: return null
+            (si.apkContentsSigners ?: si.signingCertificateHistory)?.firstOrNull()?.toByteArray()
+        } else {
+            @Suppress("DEPRECATION") archive.signatures?.firstOrNull()?.toByteArray()
+        }
 
     fun canInstall(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||

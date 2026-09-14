@@ -18,6 +18,8 @@ class Prefs(private val context: Context) {
     private val KEY_SHOW_TIME = intPreferencesKey("show_section_time") // 1 显示 0 仅节数
     private val KEY_SAMPLE_LOADED = intPreferencesKey("sample_loaded")
     private val KEY_IGNORED_VERSION = intPreferencesKey("ignored_version_code")
+    /** 上次成功下载更新的来源下标（0=官方，1=镜像）；默认 1：国内镜像通常快得多 */
+    private val KEY_UPDATE_SOURCE = intPreferencesKey("update_source_index")
 
     val currentTableId: Flow<Long> = context.dataStore.data.map { it[KEY_CURRENT_TABLE] ?: -1L }
     val darkMode: Flow<Int> = context.dataStore.data.map { it[KEY_DARK_MODE] ?: 0 }
@@ -27,8 +29,18 @@ class Prefs(private val context: Context) {
     /** 用户选择「忽略此版本」的 versionCode，0 表示没有忽略任何版本 */
     val ignoredVersionCode: Flow<Int> = context.dataStore.data.map { it[KEY_IGNORED_VERSION] ?: 0 }
 
+    /**
+     * 默认优先使用镜像源（下标 1）。
+     * 实测同一网络下 GitHub 直连约 35 KB/s、镜像约 378 KB/s，差 10 倍。
+     */
+    val updateSourceIndex: Flow<Int> = context.dataStore.data.map { it[KEY_UPDATE_SOURCE] ?: 1 }
+
     suspend fun setIgnoredVersionCode(code: Int) {
         context.dataStore.edit { it[KEY_IGNORED_VERSION] = code }
+    }
+
+    suspend fun setUpdateSourceIndex(index: Int) {
+        context.dataStore.edit { it[KEY_UPDATE_SOURCE] = index }
     }
 
     suspend fun setCurrentTable(id: Long) {

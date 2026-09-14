@@ -66,6 +66,8 @@ fun UpdateCenter(app: WakeUpApp) {
     // 启动检查：拉 version.json；同时看看上次有没有下好却没装成的包
     LaunchedEffect(Unit) {
         val ignored = prefs.ignoredVersionCode.first()
+        // 记住上次成功的下载来源（默认镜像：实测比 GitHub 直连快 10 倍）
+        candidateIndex = withContext(Dispatchers.IO) { prefs.updateSourceIndex.first() }
         info = UpdateChecker.check(ignored)
         pendingInstall = withContext(Dispatchers.IO) { AppUpdater.existingVerifiedApk(context) }
     }
@@ -79,11 +81,16 @@ fun UpdateCenter(app: WakeUpApp) {
             when (state) {
                 is AppUpdater.Progress.Success -> {
                     val file = AppUpdater.apkFile(context)
-                    val verify = withContext(Dispatchers.IO) { AppUpdater.verifyApk(context, file) }
+                    // 带上远端声明的版本号一起校验：能挡住「镜像缓存返回旧版本」这种情况
+                    val verify = withContext(Dispatchers.IO) {
+                        AppUpdater.verifyApk(context, file, info?.versionCode)
+                    }
                     downloadId = null
                     if (verify.isFailure) {
                         failure = verify.message
                     } else {
+                        // 记住这个来源，下次优先用它
+                        withContext(Dispatchers.IO) { prefs.setUpdateSourceIndex(candidateIndex) }
                         pendingInstall = file
                         statusText = "下载完成，正在调起安装…"
                         val err = AppUpdater.install(context, file)
@@ -227,6 +234,7 @@ fun UpdateCenter(app: WakeUpApp) {
                         Spacer(Modifier.height(10.dp))
                         Text(
                             "可以依次尝试：换下载源、改用浏览器下载；" +
+                                "若手机已开 VPN，切到 GitHub 官方源通常也能通。" +
                                 "若是权限问题，去设置里允许本应用「安装未知应用」后再点重试。",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
