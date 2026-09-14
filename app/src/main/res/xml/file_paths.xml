@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- 外部私有目录：/Android/data/<包名>/files/Download/，更新包默认落在这里 -->
     <external-files-path name="downloads" path="Download/" />
+    <!-- 内部私有目录兜底：外部存储不可用时使用 -->
+    <files-path name="internal_files" path="." />
     <cache-path name="cache" path="." />
 </paths>

@@ -78,9 +78,7 @@ import com.wakeup.schedule.data.CourseEntity
 import com.wakeup.schedule.data.TimeSlotEntity
 import com.wakeup.schedule.data.WeekType
 import com.wakeup.schedule.ui.Routes
-import com.wakeup.schedule.update.AppUpdater
-import com.wakeup.schedule.update.RemoteVersion
-import com.wakeup.schedule.update.UpdateChecker
+import com.wakeup.schedule.ui.update.UpdateCenter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -121,14 +119,8 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
     var detailCourse by remember { mutableStateOf<CourseEntity?>(null) }
     var showWeekEditor by remember { mutableStateOf(false) }
 
-    // 应用内更新：启动时检查一次（已被用户「忽略此版本」的不再提示）
-    var updateInfo by remember { mutableStateOf<RemoteVersion?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    LaunchedEffect(Unit) {
-        val remote = UpdateChecker.check() ?: return@LaunchedEffect
-        val ignored = app.repository.prefs.ignoredVersionCode.first()
-        if (remote.versionCode != ignored) updateInfo = remote
-    }
+    // 应用内更新：整个流程（检查 / 下载进度 / 失败重试 / 安装）由 UpdateCenter 负责
+    UpdateCenter(app)
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -558,37 +550,6 @@ fun ScheduleScreen(app: WakeUpApp, nav: NavController) {
                 }) { Text("导入") }
             },
             dismissButton = { TextButton(onClick = { showPasteCode = false }) { Text("取消") } }
-        )
-    }
-
-    // ===== 新版本提示 =====
-    updateInfo?.let { info ->
-        AlertDialog(
-            onDismissRequest = { updateInfo = null },
-            title = { Text("发现新版本 ${info.versionName}") },
-            text = {
-                Text(
-                    if (info.notes.isBlank()) "有新版本可用，点击立即更新，下载完成后会自动调起安装。"
-                    else info.notes
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    AppUpdater.downloadAndInstall(context, info.apkUrl, info.versionName)
-                    updateInfo = null
-                }) { Text("立即更新") }
-            },
-            dismissButton = {
-                Row {
-                    if (!info.force) {
-                        TextButton(onClick = {
-                            scope.launch { app.repository.prefs.setIgnoredVersionCode(info.versionCode) }
-                            updateInfo = null
-                        }) { Text("忽略此版本") }
-                    }
-                    TextButton(onClick = { updateInfo = null }) { Text("下次再说") }
-                }
-            }
         )
     }
 

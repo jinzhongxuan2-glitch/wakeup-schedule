@@ -1,7 +1,8 @@
 {
-  "versionCode": 3,
-  "versionName": "1.2.0",
+  "versionCode": 4,
+  "versionName": "1.2.1",
   "apkUrl": "https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
-  "notes": "1.2.0 教务系统直接导入（中南大学）：\n· 新增「从教务系统导入」：输学号密码即可拉取课表，自动识别表头排版/单双周/逗号周次/一格多课\n· 修复课程名括号被误删（高等数学A(下) 不再变成 高等数学A）、无节次标注时课节错位、GBK 中文乱码\n· 学号密码仅用于当次登录，不保存\n· 单元测试 37 → 61 个，全部通过",
+  "apkUrlMirror": "https://ghfast.top/https://github.com/jinzhongxuan2-glitch/wakeup-schedule/releases/latest/download/app-release.apk",
+  "notes": "1.2.1 修复「点立即更新没反应」：\n· 改用轮询获取下载状态，不再依赖收不到的下载完成广播\n· 更新过程显示实时进度与失败原因，可换镜像源重试、用浏览器下载\n· 新增「安装未知应用」权限引导；下载包校验后才安装\n· 已下载但没装成的更新包，下次进入可直接继续安装\n· 新增国内可用的镜像下载源（GitHub 直连不通时自动可切）",
   "force": false
 }
